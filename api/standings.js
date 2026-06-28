@@ -4,23 +4,40 @@
 const ESPN_URL =
   "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?limit=300&dates=20260611-20260719";
 
-// Pool scoring: points awarded to the team that advances from each knockout round.
-// Group stage and the 3rd-place playoff award nothing.
-function roundPoints(slug) {
-  const s = (slug || "").toLowerCase();
-  if (s.includes("group")) return null;
-  if (s.includes("third") || s.includes("3rd")) return null;
-  if (s.includes("32")) return 1; // Round of 32
-  if (s.includes("16")) return 1; // Round of 16
-  if (s.includes("quarter")) return 2; // Quarterfinal
-  if (s.includes("semi")) return 2; // Semifinal
-  if (s.includes("final")) return 3; // Final
-  return null;
+// ESPN doesn't reliably put the round name in one place, so gather every field
+// it might live in (season slug/type, competition type/round, note headlines)
+// and match against the combined text instead of betting on a single key.
+function roundTextOf(ev, comp) {
+  const parts = [];
+  const push = (v) => { if (typeof v === "string") parts.push(v); };
+  const s = ev.season || {};
+  push(s.slug);
+  if (s.type) { push(s.type.name); push(s.type.slug); }
+  if (comp.type) { push(comp.type.text); push(comp.type.name); push(comp.type.abbreviation); }
+  if (comp.round) { push(comp.round.name); push(comp.round); }
+  push(comp.leagueName);
+  for (const n of comp.notes || []) if (n) push(n.headline);
+  return parts.join(" ");
 }
-const isKnockout = (slug) => {
-  const s = (slug || "").toLowerCase();
-  return !!s && !s.includes("group");
-};
+
+// Classify a match by round from that combined text.
+//   isGroup -> group stage, ignore entirely
+//   known   -> we positively recognized the round (false = don't guess)
+//   points  -> points for the advancing team (null = none, e.g. 3rd-place game)
+// Order matters: "quarterfinal"/"semifinal" both contain "final", so they're
+// tested first; the group check runs first so stray text can't promote a game.
+function classifyRound(text) {
+  const c = (text || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (!c) return { isGroup: false, known: false, points: null };
+  if (c.includes("group")) return { isGroup: true, known: true, points: null };
+  if (c.includes("thirdplace") || c.includes("3rdplace")) return { isGroup: false, known: true, points: null };
+  if (c.includes("roundof32") || c.includes("last32") || c.includes("r32")) return { isGroup: false, known: true, points: 1 };
+  if (c.includes("roundof16") || c.includes("last16") || c.includes("r16")) return { isGroup: false, known: true, points: 1 };
+  if (c.includes("quarterfinal") || c.includes("quarter")) return { isGroup: false, known: true, points: 2 };
+  if (c.includes("semifinal") || c.includes("semi")) return { isGroup: false, known: true, points: 2 };
+  if (c.includes("final")) return { isGroup: false, known: true, points: 3 };
+  return { isGroup: false, known: false, points: null };
+}
 
 const norm = (s) =>
   (s || "")
@@ -104,17 +121,17 @@ module.exports = async (req, res) => {
       const comp = (ev.competitions && ev.competitions[0]) || {};
       const done = comp.status && comp.status.type && comp.status.type.completed;
       if (!done) continue;
-      const slug = (ev.season && ev.season.slug) || "";
-      if (!isKnockout(slug)) continue; // ignore the group stage
-      const pts = roundPoints(slug);
+      const round = classifyRound(roundTextOf(ev, comp));
+      if (round.isGroup) continue; // ignore the group stage
+      if (!round.known) continue;  // unrecognized round -> don't guess or pollute goals
       for (const c of comp.competitors || []) {
         const canon = resolveTeam(c.team);
         if (!canon) continue;
         const goals = parseInt(c.score, 10);
         if (!isNaN(goals)) team[canon].koGoals += goals; // goals tiebreaker (knockout stage)
         const advanced = c.winner === true || c.advance === true;
-        if (advanced && pts != null) {
-          team[canon].points += pts;
+        if (advanced && round.points != null) {
+          team[canon].points += round.points;
           team[canon].wins += 1;
         }
       }
