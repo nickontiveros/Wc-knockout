@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Knockout Pool — 2026 World Cup (Live)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0A111F; --panel:#111C32; --panel2:#16233E;
+    --line:#26375A; --line-soft:#1E2D49;
+    --green:#36D89B; --green-deep:#0E6B49; --green-glow:rgba(54,216,155,.35);
+    --gold:#F2B53D; --gold-soft:rgba(242,181,61,.13); --gold-line:rgba(242,181,61,.45);
+    --text:#EAF1FC; --muted:#8597B7; --dim:#566685; --red:#F2685C;
+    --shadow:0 1px 0 rgba(255,255,255,.03), 0 18px 40px -24px rgba(0,0,0,.7);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(1200px 600px at 80% -10%, rgba(54,216,155,.07), transparent 60%),
+      radial-gradient(900px 500px at -5% 0%, rgba(242,181,61,.05), transparent 55%),
+      var(--ink);
+    color:var(--text); font-family:'Inter',system-ui,sans-serif; font-size:15px; line-height:1.45;
+    -webkit-font-smoothing:antialiased; min-height:100vh;
+  }
+  .wrap{max-width:1080px; margin:0 auto; padding:28px 20px 64px;}
+  .masthead{display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:18px; margin-bottom:6px;}
+  .eyebrow{font-family:'Archivo',sans-serif; font-weight:700; font-size:11px; letter-spacing:.32em; text-transform:uppercase; color:var(--green); margin:0 0 6px;}
+  h1{font-family:'Archivo',sans-serif; font-weight:900; font-size:clamp(30px,6vw,50px); letter-spacing:-.02em; line-height:.95; margin:0; text-transform:uppercase;}
+  h1 .thin{color:var(--muted); font-weight:600;}
+  .legend{display:flex; gap:7px; flex-wrap:wrap; align-items:center;}
+  .chip{font-family:'Archivo',sans-serif; font-weight:700; font-size:11px; letter-spacing:.04em; padding:7px 10px; border:1px solid var(--line); border-radius:9px; background:var(--panel); display:flex; align-items:baseline; gap:6px; white-space:nowrap;}
+  .chip b{color:var(--green); font-size:13px;}
+  .chip.f b{color:var(--gold);}
+  .status{display:flex; align-items:center; gap:8px; font-size:12px; color:var(--muted); margin-top:14px;}
+  .dot{width:8px; height:8px; border-radius:50%; background:var(--green); box-shadow:0 0 0 0 var(--green-glow); animation:pulse 2.4s infinite;}
+  .dot.stale{background:var(--red); animation:none;}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 var(--green-glow);}70%{box-shadow:0 0 0 8px transparent;}100%{box-shadow:0 0 0 0 transparent;}}
+  .refresh{appearance:none; background:transparent; border:1px solid var(--line); color:var(--muted); font-family:'Archivo',sans-serif; font-weight:700; font-size:11px; letter-spacing:.06em; text-transform:uppercase; padding:5px 10px; border-radius:8px; cursor:pointer; margin-left:2px;}
+  .refresh:hover{border-color:var(--green); color:var(--text);}
+  .refresh:focus-visible{outline:2px solid var(--green); outline-offset:2px;}
+  .rule{height:1px; background:linear-gradient(90deg,var(--line),transparent); margin:18px 0 22px;}
+
+  .champ-banner{display:none; align-items:center; gap:12px; padding:14px 18px; margin-bottom:22px; border:1px solid var(--gold-line); background:linear-gradient(90deg,var(--gold-soft),transparent 80%); border-radius:14px;}
+  .champ-banner.show{display:flex;}
+  .champ-banner .cup{font-size:22px;}
+  .champ-banner b{font-family:'Archivo',sans-serif; font-weight:900; color:var(--gold); letter-spacing:.01em;}
+
+  .board{background:var(--panel); border:1px solid var(--line-soft); border-radius:16px; overflow:hidden; box-shadow:var(--shadow); margin-bottom:30px;}
+  .board-head{display:flex; align-items:center; justify-content:space-between; padding:15px 18px; border-bottom:1px solid var(--line-soft);}
+  .board-head h2{font-family:'Archivo',sans-serif; font-weight:800; font-size:15px; letter-spacing:.04em; text-transform:uppercase; margin:0;}
+  .tb-note{font-size:11.5px; color:var(--dim);}
+  .row{display:grid; grid-template-columns:42px 1fr auto auto; align-items:center; gap:14px; padding:12px 18px; border-bottom:1px solid var(--line-soft);}
+  .row:last-child{border-bottom:0;}
+  .row.prize{background:linear-gradient(90deg,var(--gold-soft),transparent 70%);}
+  .rank{font-family:'Archivo',sans-serif; font-weight:800; font-size:18px; color:var(--dim); text-align:center; font-variant-numeric:tabular-nums;}
+  .row.prize .rank{color:var(--gold);}
+  .who{min-width:0;}
+  .who .name{font-family:'Archivo',sans-serif; font-weight:700; font-size:17px;}
+  .who .mini{font-size:11.5px; color:var(--dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:1px;}
+  .gf{font-family:'Archivo',sans-serif; font-weight:700; font-size:12.5px; color:var(--muted); font-variant-numeric:tabular-nums; text-align:right; white-space:nowrap;}
+  .gf span{color:var(--dim); font-size:10px;}
+  .score{font-family:'Archivo',sans-serif; font-weight:900; font-size:24px; font-variant-numeric:tabular-nums; text-align:right; min-width:38px;}
+  .row.prize .score{color:var(--gold);}
+  .ribbon{font-family:'Archivo',sans-serif; font-size:9.5px; font-weight:800; letter-spacing:.14em; color:var(--gold); border:1px solid var(--gold-line); padding:2px 6px; border-radius:5px; margin-left:8px; vertical-align:middle; text-transform:uppercase;}
+
+  .cards{display:grid; grid-template-columns:repeat(2,1fr); gap:16px;}
+  .card{background:var(--panel); border:1px solid var(--line-soft); border-radius:16px; padding:16px 16px 12px; box-shadow:var(--shadow);}
+  .card-head{display:flex; align-items:center; gap:11px; margin-bottom:10px;}
+  .num{width:30px; height:30px; flex:none; display:grid; place-items:center; border:1px solid var(--line); border-radius:8px; background:var(--panel2); font-family:'Archivo',sans-serif; font-weight:800; font-size:14px; color:var(--muted); font-variant-numeric:tabular-nums;}
+  .card-head .nm{font-family:'Archivo',sans-serif; font-weight:800; font-size:18px; flex:1;}
+  .card-total{font-family:'Archivo',sans-serif; font-weight:900; font-size:22px; font-variant-numeric:tabular-nums;}
+  .card-total span{font-size:11px; color:var(--dim); font-weight:600; margin-left:3px;}
+  .team{display:flex; align-items:center; gap:10px; padding:8px 0; border-top:1px solid var(--line-soft);}
+  .tier{font-family:'Archivo',sans-serif; font-size:9px; font-weight:800; letter-spacing:.08em; color:var(--dim); border:1px solid var(--line-soft); border-radius:4px; padding:2px 4px; flex:none;}
+  .team-name{font-weight:600; font-size:13.5px; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .pips{display:flex; gap:3px; flex:none;}
+  .pip{width:13px; height:6px; border-radius:2px; background:var(--panel2); border:1px solid var(--line-soft);}
+  .pip.on{background:linear-gradient(180deg,var(--green),var(--green-deep)); border-color:var(--green);}
+  .pip.champ{background:linear-gradient(180deg,#FBD06B,var(--gold)); border-color:var(--gold);}
+  .team-pts{font-family:'Archivo',sans-serif; font-weight:800; font-size:14px; font-variant-numeric:tabular-nums; color:var(--muted); flex:none; width:18px; text-align:right;}
+  .team.live .team-pts{color:var(--green);}
+  .team.champ .team-name, .team.champ .team-pts{color:var(--gold);}
+
+  .err{display:none; padding:12px 16px; border:1px solid #5b2f2c; background:rgba(242,104,92,.08); color:#f3a39b; border-radius:12px; font-size:13px; margin-bottom:20px;}
+  .err.show{display:block;}
+  .foot{margin-top:26px; font-size:12px; color:var(--dim); line-height:1.6;}
+  .foot b{color:var(--muted); font-weight:600;}
+
+  @media (max-width:680px){
+    .wrap{padding:20px 14px 48px;}
+    .cards{grid-template-columns:1fr;}
+    .row{grid-template-columns:32px 1fr auto; gap:10px; padding:11px 14px;}
+    .gf{display:none;}
+  }
+  @media (prefers-reduced-motion:reduce){*{animation:none !important; transition:none !important;}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="masthead">
+    <div>
+      <p class="eyebrow">2026 World Cup · Live standings</p>
+      <h1>Knockout&nbsp;Pool<br><span class="thin">8 players · winner takes ~9</span></h1>
+    </div>
+    <div class="legend">
+      <span class="chip">R32 <b>1</b></span>
+      <span class="chip">R16 <b>1</b></span>
+      <span class="chip">QF <b>2</b></span>
+      <span class="chip">SF <b>2</b></span>
+      <span class="chip f">Final <b>3</b></span>
+    </div>
+  </header>
+  <div class="status">
+    <span class="dot" id="dot"></span>
+    <span id="updated">Loading live results…</span>
+    <button class="refresh" id="refresh">Refresh</button>
+  </div>
+  <div class="rule"></div>
+
+  <div class="champ-banner" id="champ"><span class="cup">🏆</span><span>Champion: <b id="champ-name"></b> — the title is settled.</span></div>
+  <div class="err" id="err"></div>
+
+  <section class="board" aria-label="Standings">
+    <div class="board-head">
+      <h2>Standings</h2>
+      <span class="tb-note">Ties broken by knockout-stage goals scored (GF)</span>
+    </div>
+    <div id="leaderboard"></div>
+  </section>
+
+  <section class="cards" id="cards" aria-label="Player rosters"></section>
+
+  <p class="foot">
+    Updates automatically every 30 seconds from the live match feed — no manual scoring. Each player owns the same number across all four tiers: one group winner, one second-tier team, one runner-up, one third-place side.
+    <br><b>Scoring:</b> 1 pt per win in the Round of 32 and Round of 16, 2 pts in the quarterfinals and semifinals, 3 pts for the final. <b>Tiebreaker:</b> total goals scored by your teams in the knockout stage. Results via ESPN.
+  </p>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  const ROUNDS = 5;
+  const TIERS = ["T1","T2","T3","T4"];
+
+  let lastGood = null;
+  let lastUpdated = null;
+
+  async function fetchData(){
+    try{
+      const r = await fetch("/api/standings", { cache: "no-store" });
+      const data = await r.json();
+      if(!data.ok) throw new Error(data.error || "feed unavailable");
+      lastGood = data;
+      lastUpdated = Date.now();
+      document.getElementById("err").classList.remove("show");
+      render(data);
+    }catch(e){
+      const err = document.getElementById("err");
+      err.textContent = "Couldn’t reach the live feed just now — showing the last result and retrying. (" + (e.message||e) + ")";
+      err.classList.add("show");
+      document.getElementById("dot").classList.add("stale");
+    }
+  }
+
+  function tierOf(i){ return TIERS[i] || "T?"; }
+
+  function render(data){
+    document.getElementById("dot").classList.remove("stale");
+
+    // champion banner
+    const cb = document.getElementById("champ");
+    if(data.champion){
+      document.getElementById("champ-name").textContent = data.champion;
+      cb.classList.add("show");
+    } else {
+      cb.classList.remove("show");
+    }
+
+    // leaderboard
+    const lb = document.getElementById("leaderboard");
+    lb.innerHTML = "";
+    data.players.forEach(p => {
+      const row = document.createElement("div");
+      row.className = "row" + (p.prize ? " prize" : "");
+      const teamsLine = p.teams.map(t=>t.name).join(" · ");
+      row.innerHTML =
+        '<div class="rank">'+p.rank+'</div>'+
+        '<div class="who"><div class="name">'+p.name+(p.prize?'<span class="ribbon">Prize</span>':'')+'</div>'+
+        '<div class="mini">'+teamsLine+'</div></div>'+
+        '<div class="gf">'+p.goals+' <span>GF</span></div>'+
+        '<div class="score">'+p.points+'</div>';
+      lb.appendChild(row);
+    });
+
+    // cards (in draw order, by number)
+    const ordered = data.players.slice().sort((a,b)=> a.n - b.n);
+    const cards = document.getElementById("cards");
+    cards.innerHTML = "";
+    ordered.forEach(p => {
+      const card = document.createElement("div");
+      card.className = "card";
+      let html =
+        '<div class="card-head"><div class="num">'+p.n+'</div>'+
+        '<div class="nm">'+p.name+'</div>'+
+        '<div class="card-total">'+p.points+'<span>pts</span></div></div>';
+      p.teams.forEach((t, i) => {
+        const champ = t.wins >= 5;
+        const live = t.wins > 0;
+        let pips = "";
+        for(let k=0;k<ROUNDS;k++){
+          const on = k < t.wins;
+          pips += '<span class="pip'+(on?(champ?" champ":" on"):"")+'"></span>';
+        }
+        html +=
+          '<div class="team'+(champ?" champ":(live?" live":""))+'">'+
+            '<span class="tier">'+tierOf(i)+'</span>'+
+            '<span class="team-name">'+t.name+'</span>'+
+            '<span class="pips">'+pips+'</span>'+
+            '<span class="team-pts">'+t.points+'</span>'+
+          '</div>';
+      });
+      card.innerHTML = html;
+      cards.appendChild(card);
+    });
+  }
+
+  function tick(){
+    if(!lastUpdated){ return; }
+    const secs = Math.round((Date.now()-lastUpdated)/1000);
+    let txt;
+    if(secs < 5) txt = "Updated just now";
+    else if(secs < 60) txt = "Updated "+secs+"s ago";
+    else txt = "Updated "+Math.floor(secs/60)+"m ago";
+    document.getElementById("updated").textContent = txt + " · live";
+  }
+
+  document.getElementById("refresh").addEventListener("click", fetchData);
+  fetchData();
+  setInterval(fetchData, 30000);
+  setInterval(tick, 1000);
+})();
+</script>
+</body>
+</html>
