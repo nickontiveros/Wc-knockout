@@ -115,7 +115,7 @@ module.exports = async (req, res) => {
     const events = data.events || [];
 
     const team = {};
-    for (const canon of Object.keys(TEAMS)) team[canon] = { points: 0, koGoals: 0, wins: 0 };
+    for (const canon of Object.keys(TEAMS)) team[canon] = { points: 0, koGoals: 0, wins: 0, eliminated: false };
 
     for (const ev of events) {
       const comp = (ev.competitions && ev.competitions[0]) || {};
@@ -124,16 +124,21 @@ module.exports = async (req, res) => {
       const round = classifyRound(roundTextOf(ev, comp));
       if (round.isGroup) continue; // ignore the group stage
       if (!round.known) continue;  // unrecognized round -> don't guess or pollute goals
-      for (const c of comp.competitors || []) {
+      const comps = comp.competitors || [];
+      const advancedOf = (c) => c.winner === true || c.advance === true;
+      const hasWinner = comps.some(advancedOf); // guard: a completed match with no marked winner
+      for (const c of comps) {
         const canon = resolveTeam(c.team);
         if (!canon) continue;
         const goals = parseInt(c.score, 10);
         if (!isNaN(goals)) team[canon].koGoals += goals; // goals tiebreaker (knockout stage)
-        const advanced = c.winner === true || c.advance === true;
+        const advanced = advancedOf(c);
         if (advanced && round.points != null) {
           team[canon].points += round.points;
           team[canon].wins += 1;
         }
+        // Single elimination: losing a decided knockout match knocks you out.
+        if (!advanced && hasWinner) team[canon].eliminated = true;
       }
     }
 
@@ -143,7 +148,7 @@ module.exports = async (req, res) => {
     const players = PLAYERS.map((p) => {
       const points = p.teams.reduce((s, t) => s + team[t].points, 0);
       const goals = p.teams.reduce((s, t) => s + team[t].koGoals, 0);
-      const detail = p.teams.map((t) => ({ name: t, points: team[t].points, wins: team[t].wins }));
+      const detail = p.teams.map((t) => ({ name: t, points: team[t].points, wins: team[t].wins, eliminated: team[t].eliminated }));
       return { n: p.n, name: p.name, points, goals, teams: detail };
     });
     players.sort((a, b) => b.points - a.points || b.goals - a.goals || a.n - b.n);
