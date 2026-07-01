@@ -148,7 +148,7 @@ module.exports = async (req, res) => {
     const players = PLAYERS.map((p) => {
       const points = p.teams.reduce((s, t) => s + team[t].points, 0);
       const goals = p.teams.reduce((s, t) => s + team[t].koGoals, 0);
-      const detail = p.teams.map((t) => ({ name: t, points: team[t].points, wins: team[t].wins, eliminated: team[t].eliminated }));
+      const detail = p.teams.map((t) => ({ name: t, points: team[t].points, wins: team[t].wins, eliminated: team[t].eliminated, goals: team[t].koGoals }));
       return { n: p.n, name: p.name, points, goals, teams: detail };
     });
     players.sort((a, b) => b.points - a.points || b.goals - a.goals || a.n - b.n);
